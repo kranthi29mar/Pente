@@ -131,38 +131,38 @@ graph TB
     class IGW,NATGW_A,NATGW_B,ALB_A,ALB_B,RT_Public,RT_Private_A,RT_Private_B,RT_DB network
 ```
 
-Key Components Description
+## Key Components Description
 
-Networking Layer
+### Networking Layer
 - **VPC**: Isolated network environment with CIDR 10.0.0.0/16
 - **Subnets**: Public, private, and database subnets across two AZs for high availability
 - **Internet Gateway**: Provides internet access to public subnets
 - **NAT Gateways**: Enable internet access for private subnet resources
 - **Route Tables**: Control traffic routing between subnets and internet
 
-Compute Layer
+### Compute Layer
 - **EKS Cluster**: Managed Kubernetes service spanning both availability zones
 - **Node Groups**: Auto-scaling worker nodes in private subnets
 - **Istio**: Service mesh for microservices communication and security
 - **Helm**: Package manager for Kubernetes applications
 
-Data Storage Layer
+### Data Storage Layer
 - **RDS PostgreSQL**: Multi-AZ deployment with primary in AZ-A and standby in AZ-B
 - **ElastiCache Redis**: Distributed caching layer across both availability zones
 - **S3 Buckets**: Separate buckets for static assets and Terraform state with versioning
 
-Security Layer
+### Security Layer
 - **IAM**: Role-based access control with least privilege principle
 - **Security Groups**: Instance-level firewall rules for each service tier
 - **Network ACLs**: Subnet-level network security
 - **KMS**: Encryption keys for data at rest across all storage services
 
-Monitoring & Auto Scaling
+### Monitoring & Auto Scaling
 - **CloudWatch**: Metrics collection and monitoring
 - **Auto Scaling Groups**: CPU and custom metric-based scaling policies
 - **Application Load Balancer**: Distributes traffic across EKS nodes
 
-Terraform Module Structure
+## Terraform Module Structure
 
 ```
 modules/
