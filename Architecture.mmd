@@ -1,0 +1,203 @@
+# AWS Infrastructure Architecture - Mermaid Diagram
+
+## Infrastructure as Code (IaC) Architecture
+
+```mermaid
+graph TB
+    subgraph "AWS Cloud"
+        subgraph "VPC - 10.0.0.0/16"
+            subgraph "Availability Zone A"
+                subgraph "Public Subnet A - 10.0.1.0/24"
+                    IGW[Internet Gateway]
+                    NATGW_A[NAT Gateway A]
+                    ALB_A[Application Load Balancer]
+                end
+                subgraph "Private Subnet A - 10.0.3.0/24"
+                    EKS_NodeGroup_A[EKS Node Group A]
+                    subgraph "EKS Cluster"
+                        Istio_A[Istio Service Mesh]
+                        Helm_A[Helm Charts]
+                        Pods_A[Application Pods]
+                    end
+                end
+                subgraph "Database Subnet A - 10.0.5.0/24"
+                    RDS_Primary[RDS PostgreSQL Primary]
+                    Redis_A[ElastiCache Redis Node A]
+                end
+            end
+
+            subgraph "Availability Zone B"
+                subgraph "Public Subnet B - 10.0.2.0/24"
+                    NATGW_B[NAT Gateway B]
+                    ALB_B[Application Load Balancer]
+                end
+                subgraph "Private Subnet B - 10.0.4.0/24"
+                    EKS_NodeGroup_B[EKS Node Group B]
+                    subgraph "EKS Cluster B"
+                        Istio_B[Istio Service Mesh]
+                        Helm_B[Helm Charts]
+                        Pods_B[Application Pods]
+                    end
+                end
+                subgraph "Database Subnet B - 10.0.6.0/24"
+                    RDS_Standby[RDS PostgreSQL Standby]
+                    Redis_B[ElastiCache Redis Node B]
+                end
+            end
+
+            subgraph "Route Tables"
+                RT_Public[Public Route Table]
+                RT_Private_A[Private Route Table A]
+                RT_Private_B[Private Route Table B]
+                RT_DB[Database Route Table]
+            end
+        end
+
+        subgraph "Security & Encryption"
+            KMS[KMS Keys]
+            IAM[IAM Roles & Policies]
+            SG_EKS[Security Group - EKS]
+            SG_RDS[Security Group - RDS]
+            SG_Redis[Security Group - Redis]
+            SG_ALB[Security Group - ALB]
+            NACL[Network ACLs]
+        end
+
+        subgraph "Storage & State"
+            S3_Static[S3 - Static Assets]
+            S3_TFState[S3 - Terraform State]
+            S3_Versioning[S3 Versioning Enabled]
+            S3_Encryption[S3 Server-Side Encryption]
+        end
+
+        subgraph "Monitoring & Auto Scaling"
+            CW[CloudWatch Metrics]
+            ASG_A[Auto Scaling Group A]
+            ASG_B[Auto Scaling Group B]
+            CPU_Scaling[CPU-based Scaling]
+            Custom_Scaling[Custom Metric Scaling]
+        end
+    end
+
+    subgraph "External"
+        Internet[Internet]
+        DevOps[DevOps Engineer]
+    end
+
+    %% Connections
+    Internet --> IGW
+    IGW --> ALB_A
+    IGW --> ALB_B
+    ALB_A --> EKS_NodeGroup_A
+    ALB_B --> EKS_NodeGroup_B
+    
+    EKS_NodeGroup_A --> NATGW_A
+    EKS_NodeGroup_B --> NATGW_B
+    NATGW_A --> IGW
+    NATGW_B --> IGW
+    
+    EKS_NodeGroup_A --> RDS_Primary
+    EKS_NodeGroup_B --> RDS_Primary
+    EKS_NodeGroup_A --> Redis_A
+    EKS_NodeGroup_B --> Redis_B
+    
+    RDS_Primary -.-> RDS_Standby
+    Redis_A -.-> Redis_B
+    
+    EKS_NodeGroup_A --> S3_Static
+    EKS_NodeGroup_B --> S3_Static
+    
+    DevOps --> S3_TFState
+    
+    KMS --> RDS_Primary
+    KMS --> RDS_Standby
+    KMS --> S3_Static
+    KMS --> S3_TFState
+    KMS --> Redis_A
+    KMS --> Redis_B
+    
+    CW --> ASG_A
+    CW --> ASG_B
+    CW --> CPU_Scaling
+    CW --> Custom_Scaling
+
+    %% Styling
+    classDef aws fill:#FF9900,stroke:#232F3E,stroke-width:2px,color:#fff
+    classDef compute fill:#EC7211,stroke:#232F3E,stroke-width:2px,color:#fff
+    classDef database fill:#C925D1,stroke:#232F3E,stroke-width:2px,color:#fff
+    classDef storage fill:#3F48CC,stroke:#232F3E,stroke-width:2px,color:#fff
+    classDef security fill:#DD344C,stroke:#232F3E,stroke-width:2px,color:#fff
+    classDef network fill:#8C4FFF,stroke:#232F3E,stroke-width:2px,color:#fff
+
+    class EKS_NodeGroup_A,EKS_NodeGroup_B,Istio_A,Istio_B,Helm_A,Helm_B,Pods_A,Pods_B,ASG_A,ASG_B compute
+    class RDS_Primary,RDS_Standby,Redis_A,Redis_B database
+    class S3_Static,S3_TFState,S3_Versioning,S3_Encryption storage
+    class KMS,IAM,SG_EKS,SG_RDS,SG_Redis,SG_ALB,NACL security
+    class IGW,NATGW_A,NATGW_B,ALB_A,ALB_B,RT_Public,RT_Private_A,RT_Private_B,RT_DB network
+```
+
+## Key Components Description
+
+### Networking Layer
+- **VPC**: Isolated network environment with CIDR 10.0.0.0/16
+- **Subnets**: Public, private, and database subnets across two AZs for high availability
+- **Internet Gateway**: Provides internet access to public subnets
+- **NAT Gateways**: Enable internet access for private subnet resources
+- **Route Tables**: Control traffic routing between subnets and internet
+
+### Compute Layer
+- **EKS Cluster**: Managed Kubernetes service spanning both availability zones
+- **Node Groups**: Auto-scaling worker nodes in private subnets
+- **Istio**: Service mesh for microservices communication and security
+- **Helm**: Package manager for Kubernetes applications
+
+### Data Storage Layer
+- **RDS PostgreSQL**: Multi-AZ deployment with primary in AZ-A and standby in AZ-B
+- **ElastiCache Redis**: Distributed caching layer across both availability zones
+- **S3 Buckets**: Separate buckets for static assets and Terraform state with versioning
+
+### Security Layer
+- **IAM**: Role-based access control with least privilege principle
+- **Security Groups**: Instance-level firewall rules for each service tier
+- **Network ACLs**: Subnet-level network security
+- **KMS**: Encryption keys for data at rest across all storage services
+
+### Monitoring & Auto Scaling
+- **CloudWatch**: Metrics collection and monitoring
+- **Auto Scaling Groups**: CPU and custom metric-based scaling policies
+- **Application Load Balancer**: Distributes traffic across EKS nodes
+
+## Terraform Module Structure
+
+```
+modules/
+├── networking/
+│   ├── main.tf
+│   ├── variables.tf
+│   └── outputs.tf
+├── compute/
+│   ├── main.tf
+│   ├── variables.tf
+│   └── outputs.tf
+├── database/
+│   ├── main.tf
+│   ├── variables.tf
+│   └── outputs.tf
+├── security/
+│   ├── main.tf
+│   ├── variables.tf
+│   └── outputs.tf
+└── storage/
+    ├── main.tf
+    ├── variables.tf
+    └── outputs.tf
+
+root/
+├── main.tf
+├── variables.tf
+├── outputs.tf
+├── terraform.tfvars
+└── backend.tf
+```
+
+This architecture ensures high availability, security, and scalability while following AWS best practices and Infrastructure as Code principles.
